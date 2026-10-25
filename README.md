@@ -2,6 +2,8 @@
 
 Une liste de souhaits (Noël, anniversaire…) **gratuite, sans compte, sans spoiler**.
 
+> 🎁 **Projet perso, hors de mon domaine habituel (la cybersécurité).** Une petite application web faite pour offrir des cadeaux sans gâcher la surprise. J'en ai profité pour appliquer une approche *security by design* : aucun accès direct à la base (RLS), secrets de 256 bits, fonctions SQL validées, anti-SSRF, anti-spam, tests de concurrence. Voir [Comment fonctionne la sécurité](#comment-fonctionne-la-sécurité).
+
 - Tu crées ta liste d'idées cadeaux.
 - Tu envoies un lien à tes proches : ils voient la liste et cliquent **« Je le prends »**.
 - Les réservations apparaissent **en direct** chez tous ceux qui ont la page ouverte.
