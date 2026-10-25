@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 64" role="img" aria-label="Papillote">
+  <!-- papier doré froncé aux deux extrémités -->
+  <path d="M30 32 L5 12 Q11 32 5 52 Z" fill="#d4a62f"/>
+  <path d="M66 32 L91 12 Q85 32 91 52 Z" fill="#d4a62f"/>
+  <path d="M30 32 L7 20 M30 32 L6 32 M30 32 L7 44" stroke="#a97c12" stroke-width="1.6" stroke-linecap="round" fill="none"/>
+  <path d="M66 32 L89 20 M66 32 L90 32 M66 32 L89 44" stroke="#a97c12" stroke-width="1.6" stroke-linecap="round" fill="none"/>
+  <!-- bonbon -->
+  <ellipse cx="48" cy="32" rx="24" ry="18" fill="#b02a43"/>
+  <path d="M30 22 Q48 8 66 22" stroke="#ffffff" stroke-opacity=".55" stroke-width="3" stroke-linecap="round" fill="none"/>
+  <path d="M38 48 L58 16" stroke="#d4a62f" stroke-width="5" stroke-linecap="round" opacity=".9"/>
+  <path d="M48 50 L66 24" stroke="#d4a62f" stroke-width="3" stroke-linecap="round" opacity=".7"/>
+  <!-- petites étoiles -->
+  <circle cx="14" cy="6" r="2" fill="#d4a62f"/>
+  <circle cx="84" cy="58" r="2" fill="#b02a43"/>
+</svg>

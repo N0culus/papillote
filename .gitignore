@@ -1,0 +1,11 @@
+node_modules/
+.env
+.env.*
+*.local
+.DS_Store
+.vscode/
+.idea/
+_site/
+supabase/.temp/
+supabase/.branches/
+# config.js est volontairement COMMITÉ (URL + clé anon publiques, nécessaires à GitHub Pages).

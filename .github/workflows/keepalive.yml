@@ -1,0 +1,40 @@
+name: Keepalive Supabase
+
+# Le plan gratuit de Supabase met un projet en pause après 7 jours sans activité.
+# Ce workflow appelle chaque jour la fonction SQL "ping" pour l'éviter.
+# Secrets à créer dans GitHub > Settings > Secrets and variables > Actions :
+#   SUPABASE_URL       (ex. https://abcdefgh.supabase.co)
+#   SUPABASE_ANON_KEY  (la clé publique "anon")
+
+on:
+  schedule:
+    - cron: '17 6 * * *'   # tous les jours à 06:17 UTC
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Ping Supabase
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
+            echo "Secrets SUPABASE_URL / SUPABASE_ANON_KEY manquants." >&2
+            exit 1
+          fi
+          # Les anciennes clés anon sont des JWT (eyJ…) ; les nouvelles clés "publishable" non.
+          auth=()
+          case "$SUPABASE_ANON_KEY" in eyJ*) auth=(-H "Authorization: Bearer $SUPABASE_ANON_KEY");; esac
+          code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 30 \
+            -X POST "${SUPABASE_URL%/}/rest/v1/rpc/ping" \
+            -H "apikey: $SUPABASE_ANON_KEY" \
+            "${auth[@]}" \
+            -H "Content-Type: application/json" \
+            -d '{}')
+          echo "HTTP $code"
+          [ "$code" = "200" ]
