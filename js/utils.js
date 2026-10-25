@@ -7,6 +7,7 @@ const SAFE_PROTOCOLS = ['http:', 'https:'];
 export function safeUrl(value) {
   if (typeof value !== 'string' || !value) return null;
   if (value.startsWith('#/')) return value;
+  if (/^assets\/[\w.-]+$/.test(value)) return value; // fichiers de l'appli (logo...), jamais des données utilisateur
   try {
     const u = new URL(value);
     return SAFE_PROTOCOLS.includes(u.protocol) ? u.href : null;
