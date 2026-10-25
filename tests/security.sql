@@ -22,6 +22,7 @@ declare
   owner_view jsonb;
   guest_view jsonb;
   keys text;
+  n int;
 begin
   -- 1. Aucun accès direct aux tables ------------------------------------------
   begin
@@ -167,6 +168,38 @@ begin
   exception when others then
     if sqlerrm <> 'not_found' then raise; end if;
   end;
+
+  -- 12. Limites de création de listes -----------------------------------------
+  -- Par visiteur (IP simulée via l'en-tête que Supabase fournit) : 5 par heure.
+  perform set_config('request.headers', '{"cf-connecting-ip":"203.0.113.7"}', true);
+  for n in 1..5 loop
+    perform public.create_list('spam ' || n, 'autre');
+  end loop;
+  begin
+    perform public.create_list('spam 6', 'autre');
+    raise exception 'ECHEC: la limite par visiteur ne s''applique pas';
+  exception when others then
+    if sqlerrm <> 'rate_limited' then raise; end if;
+  end;
+  -- Un autre visiteur n'est pas bloqué...
+  perform set_config('request.headers', '{"cf-connecting-ip":"203.0.113.8"}', true);
+  perform public.create_list('autre visiteur', 'autre');
+  -- ... mais le plafond global (40/heure) s'applique à tout le monde.
+  for n in 1..60 loop
+    perform set_config('request.headers', json_build_object('cf-connecting-ip', '198.51.100.' || n)::text, true);
+    begin
+      perform public.create_list('global ' || n, 'autre');
+    exception when others then
+      if sqlerrm <> 'rate_limited' then raise; end if;
+      exit;
+    end;
+    if n = 60 then raise exception 'ECHEC: le plafond global ne s''applique pas'; end if;
+  end loop;
+  -- La table du journal reste inaccessible
+  begin
+    perform 1 from public.rate_events;
+    raise exception 'ECHEC: rate_events lisible par anon';
+  exception when insufficient_privilege then null; end;
 
   raise notice 'TOUS LES TESTS SONT PASSÉS';
 end $$;

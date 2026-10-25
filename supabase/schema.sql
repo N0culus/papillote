@@ -94,6 +94,25 @@ begin
 end;
 $$;
 
+-- Empreinte (hachée) du visiteur, déduite des en-têtes ajoutés par Supabase.
+-- cf-connecting-ip est posé par Cloudflare (non falsifiable par le client).
+-- Renvoie null si l'IP est inconnue : la limite par visiteur est alors ignorée
+-- (les plafonds globaux, eux, s'appliquent toujours).
+create or replace function public._client_key()
+returns text
+language sql
+stable
+set search_path = ''
+as $$
+  select md5(h) from (
+    select nullif(btrim(coalesce(
+      nullif(current_setting('request.headers', true), '')::json ->> 'cf-connecting-ip',
+      nullif(current_setting('request.headers', true), '')::json ->> 'x-real-ip'
+    )), '') as h
+  ) t
+  where h is not null;
+$$;
+
 -- -----------------------------------------------------------------------------
 -- 2. Tables
 -- -----------------------------------------------------------------------------
@@ -141,6 +160,16 @@ create index if not exists reservations_item_idx on public.reservations (item_id
 create unique index if not exists reservations_one_exclusive_per_item
   on public.reservations (item_id) where is_exclusive;
 
+-- Journal des créations de listes, pour la limitation de débit (voir create_list).
+-- On ne garde qu'un hachage de l'adresse IP, jamais l'IP elle-même.
+create table if not exists public.rate_events (
+  id         bigint generated always as identity primary key,
+  kind       text not null,
+  key        text not null,
+  created_at timestamptz not null default now()
+);
+create index if not exists rate_events_lookup_idx on public.rate_events (kind, key, created_at);
+
 -- -----------------------------------------------------------------------------
 -- 3. Row Level Security : activée, sans AUCUNE policy + droits révoqués
 -- -----------------------------------------------------------------------------
@@ -148,10 +177,12 @@ create unique index if not exists reservations_one_exclusive_per_item
 alter table public.lists        enable row level security;
 alter table public.items        enable row level security;
 alter table public.reservations enable row level security;
+alter table public.rate_events  enable row level security;
 
 revoke all on table public.lists        from public, anon, authenticated;
 revoke all on table public.items        from public, anon, authenticated;
 revoke all on table public.reservations from public, anon, authenticated;
+revoke all on table public.rate_events  from public, anon, authenticated;
 
 -- -----------------------------------------------------------------------------
 -- 4. Résolution des secrets (internes)
@@ -221,13 +252,39 @@ as $$
 declare
   v public.lists;
   v_occasion text := coalesce(p_occasion, 'autre');
+  v_title text := public._txt(p_title, 120, true);
+  v_client text := public._client_key();
+  -- Limites : modifie ces valeurs si besoin.
+  c_per_client_hour constant int := 5;     -- créations / heure / visiteur (si IP connue)
+  c_global_hour     constant int := 40;    -- créations / heure, tous visiteurs
+  c_global_total    constant int := 1000;  -- nombre total de listes
 begin
   if v_occasion not in ('noel', 'anniversaire', 'autre') then
     raise exception 'invalid_input';
   end if;
 
+  -- Sérialise les créations pour que les compteurs ci-dessous soient exacts.
+  perform pg_advisory_xact_lock(hashtext('papillote.create_list'));
+
+  delete from public.rate_events where created_at < now() - interval '1 day';
+
+  if (select count(*) from public.lists) >= c_global_total then
+    raise exception 'service_full';
+  end if;
+  if (select count(*) from public.rate_events
+       where kind = 'create_list' and created_at > now() - interval '1 hour') >= c_global_hour then
+    raise exception 'rate_limited';
+  end if;
+  if v_client is not null and (select count(*) from public.rate_events
+       where kind = 'create_list' and key = v_client
+         and created_at > now() - interval '1 hour') >= c_per_client_hour then
+    raise exception 'rate_limited';
+  end if;
+
+  insert into public.rate_events (kind, key) values ('create_list', coalesce(v_client, '-'));
+
   insert into public.lists (title, occasion)
-  values (public._txt(p_title, 120, true), v_occasion)
+  values (v_title, v_occasion)
   returning * into v;
 
   return jsonb_build_object(
@@ -529,6 +586,12 @@ begin
   if (select count(*) from public.reservations where item_id = v_item.id) >= 100 then
     raise exception 'limit_reached';
   end if;
+  -- plafond par liste : un lien de partage ne doit pas pouvoir remplir la base
+  if (select count(*) from public.reservations r
+        join public.items i on i.id = r.item_id
+       where i.list_id = v_list) >= 300 then
+    raise exception 'limit_reached';
+  end if;
 
   if v_item.kind = 'single' then
     if exists (select 1 from public.reservations where item_id = v_item.id) then
@@ -596,6 +659,7 @@ $$;
 revoke all on function public._gen_secret()                         from public, anon, authenticated;
 revoke all on function public._txt(text, int, boolean, boolean)     from public, anon, authenticated;
 revoke all on function public._url(text, int)                       from public, anon, authenticated;
+revoke all on function public._client_key()                         from public, anon, authenticated;
 revoke all on function public._list_id_by_owner(text)               from public, anon, authenticated;
 revoke all on function public._list_id_by_share(text)               from public, anon, authenticated;
 

@@ -7,7 +7,9 @@ const MESSAGES = {
   not_found: 'Lien introuvable, ou élément supprimé entre-temps.',
   invalid_input: 'Certaines informations ne sont pas valides. Vérifie les champs.',
   already_taken: 'Oups, quelqu’un vient de le prendre !',
-  limit_reached: 'Limite atteinte (100 articles par liste, 100 réservations par article).',
+  limit_reached: 'Limite atteinte (100 articles par liste, 100 réservations par article, 300 par liste).',
+  rate_limited: 'Trop de listes créées en peu de temps. Réessaie dans une heure.',
+  service_full: 'Papillote est complet pour le moment. Réessaie plus tard.',
   network: 'Connexion impossible. Vérifie ta connexion et réessaie.',
   unknown: 'Une erreur est survenue. Réessaie dans un instant.',
 };
