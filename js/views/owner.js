@@ -120,15 +120,17 @@ export async function ownerView(root, { secret }, ctx) {
     };
     renderTitle();
 
+    // replaceChildren() transformerait un null en texte "null" : on n'ajoute le bandeau que s'il existe
+    const welcome = isNew
+      ? h(
+          'div',
+          { class: 'notice notice-info', role: 'status' },
+          h('strong', null, '🎉 Ta liste est créée ! '),
+          'Première étape : enregistre ton lien propriétaire (carte « 🔑 » ci-dessous). C’est la seule façon de modifier ta liste plus tard.',
+        )
+      : [];
     sections.top.replaceChildren(
-      isNew
-        ? h(
-            'div',
-            { class: 'notice notice-info', role: 'status' },
-            h('strong', null, '🎉 Ta liste est créée ! '),
-            'Première étape : enregistre ton lien propriétaire (carte « 🔑 » ci-dessous). C’est la seule façon de modifier ta liste plus tard.',
-          )
-        : null,
+      ...[welcome].flat(),
       titleBox,
       h(
         'p',
